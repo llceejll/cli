@@ -16,9 +16,10 @@
 > **Test Coverage**: The `codecov/patch` check requires that new or modified lines are covered by tests. When adding code, extract testable helper functions rather than embedding logic in `main`/`run` where it's hard to unit-test. Run `cargo test` locally and verify new branches are exercised.
 
 ```bash
-cargo build          # Build in dev mode
-cargo clippy -- -D warnings  # Lint check
-cargo test           # Run tests
+cargo build                              # Build in dev mode
+cargo fmt --all -- --check               # Format check (CI)
+cargo clippy --workspace -- -D warnings  # Lint check (CI)
+cargo test --workspace                   # Run tests (CI)
 ```
 
 ## Changesets

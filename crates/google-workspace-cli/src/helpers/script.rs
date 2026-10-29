@@ -154,6 +154,10 @@ fn visit_dirs(dir: &Path, files: &mut Vec<serde_json::Value>) -> Result<(), GwsE
     Ok(())
 }
 
+fn strip_one_suffix<'a>(filename: &'a str, suffix: &str) -> &'a str {
+    filename.strip_suffix(suffix).unwrap_or(filename)
+}
+
 fn process_file(path: &Path) -> Result<Option<serde_json::Value>, GwsError> {
     let filename = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
     let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("");
@@ -164,11 +168,11 @@ fn process_file(path: &Path) -> Result<Option<serde_json::Value>, GwsError> {
     }
 
     let (type_val, name_val) = match extension {
-        "gs" | "js" => (
-            "SERVER_JS",
-            filename.trim_end_matches(".js").trim_end_matches(".gs"),
-        ),
-        "html" => ("HTML", filename.trim_end_matches(".html")),
+        // Strip only the extension this file actually has. Repeated
+        // `trim_end_matches` turned `app.gs.js` into `app`.
+        "gs" => ("SERVER_JS", strip_one_suffix(filename, ".gs")),
+        "js" => ("SERVER_JS", strip_one_suffix(filename, ".js")),
+        "html" => ("HTML", strip_one_suffix(filename, ".html")),
         "json" if filename == "appsscript.json" => ("JSON", "appsscript"),
         _ => return Ok(None),
     };
@@ -205,6 +209,23 @@ mod tests {
             result["source"].as_str().unwrap().trim(),
             "function foo() {}"
         );
+    }
+
+    #[test]
+    fn test_process_file_keeps_inner_extension() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("app.gs.js");
+        File::create(&file_path).unwrap();
+
+        let result = process_file(&file_path).unwrap().unwrap();
+        assert_eq!(result["name"], "app.gs");
+        assert_eq!(result["type"], "SERVER_JS");
+
+        let gs_path = dir.path().join("app.js.gs");
+        File::create(&gs_path).unwrap();
+        let gs = process_file(&gs_path).unwrap().unwrap();
+        assert_eq!(gs["name"], "app.js");
+        assert_eq!(gs["type"], "SERVER_JS");
     }
 
     #[test]
